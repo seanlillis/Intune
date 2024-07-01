@@ -38,7 +38,8 @@ Try {
     }
 }
 Catch {
-    Write-Host "Error retrieving Edge Extension manifest details"
+    Write-Host "Failed to retrieve Edge extension manifest details: $_" -ForegroundColor Red
+    Break
 }
 # Output the Edge Extension manifest details
 $edgeExtensionManifestDetails
