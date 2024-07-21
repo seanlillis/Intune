@@ -26,9 +26,8 @@
 $numberOfCloudPCsInaccessible = 1000
 $testRun = $false # Set to $true to test the script without restoring the Cloud PCs
 $dirReports = $env:PUBLIC + "\CloudPCReports"
-# July 19, 2024 at 04:09 UTC is the date when the Crowdstrike sensor update was released that causes the BSOD. Here we set 04:00 as the latest restore point in local time.
+# July 19, 2024 at 04:09 UTC is the date when the Crowdstrike sensor update was released that causes the BSOD. Here we set 04:00 as the latest restore point.
 $restorePointDateTime = [datetime]::Parse("2024-07-19T04:00:00.000Z")
-$restorePointDateTimeLocal = $restorePointDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 
 #endregion 
 
@@ -106,26 +105,28 @@ For ($i = 0; $i -lt $numberOfCloudPCsInaccessible; $i += 100) {
 $cloudPCsToRestore = $w365InaccessibleReportData | Where-Object { $_.deviceHealthStatus -contains "ErrorResourceUnavailable"}
 Write-Host "Windows 365 devices with status ErrorResourceUnavailable: [$($w365InaccessibleReportData.Count)]"
 If ($cloudPCsToRestore.Count -gt 0) {
-    Write-Host "Restoring inaccessible Cloud PCs using the latest snapshot created before $restorePointDateTimeLocal"
+    Write-Host "Restoring inaccessible Cloud PCs using the latest snapshot created before $restorePointDateTime"
     $restoreJobs = @()
     $cloudPCsProcessed = 0
     Foreach ($cloudPC in $cloudPCsToRestore) {
         Try {
             $cloudPCsProcessed++
-            # Get the latest snapshots filtering on those created before $restorePointDateTimeLocal
+            # Get the latest snapshots filtering on those created before $restorePointDateTime
             Write-Host "Getting snapshots for Cloud PC [$($cloudPC.cloudPcName)] [$($cloudPC.cloudPcId)]" 
             $snapshots = Get-MgBetaDeviceManagementVirtualEndpointSnapshot -Filter "cloudPcId eq '$($cloudPC.cloudPcId)'" | Sort-Object -Property createdDateTime -Descending            
-            # Get the latest snapshot created before the specified restore point date time in $restorePointDateTimeLocal
-            $snapshotForRestore = $snapshots | Where-Object { $_.createdDateTime -lt $restorePointDateTimeLocal } | Select -First 1 
-            # Convert the snapshot created date time         
-            $snapShotCreatedDateTime = [datetime]::ParseExact($snapshotForRestore.createdDateTime, "MM/dd/yyyy HH:mm:ss", $null)
+            # Add a member to the snapshot to store the created date time as datetime object
+            Foreach ($snapshot in $snapshots) {
+                $null = $snapshot | Add-Member -MemberType NoteProperty -Name "CreatedDateTimeValue" -Value $([datetime]::ParseExact($snapshot.createdDateTime, "MM/dd/yyyy HH:mm:ss", $null)) -Force
+            }
+            # Get the latest snapshot created before the specified restore point date time in $restorePointDateTime
+            $snapshotForRestore = $snapshots | Where-Object { $_.createdDateTimeValue -lt $restorePointDateTime } | Select -First 1            
             If ($snapshotForRestore -eq $null) {
-                Write-Host "No snapshots found for Cloud PC [$($cloudPC.cloudPcName)] [$($cloudPC.cloudPcId)] created before $restorePointDateTimeLocal"
+                Write-Host "No snapshots found for Cloud PC [$($cloudPC.cloudPcName)] [$($cloudPC.cloudPcId)] created before $restorePointDateTime"
             }
             Else {
                 # Restore the Cloud PC to the selected snapshot
                 If ($testRun -eq $false) {
-                    Write-Host "Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$snapShotCreatedDateTime]"
+                    Write-Host "Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$($snapshotForRestore.createdDateTimeValue)]"
                     $params = @{
                         cloudPcSnapshotId = $($snapshotForRestore.id)
                     }
@@ -134,10 +135,10 @@ If ($cloudPCsToRestore.Count -gt 0) {
                     $cloudPC | Add-Member -MemberType NoteProperty -Name "RestorationStatus" -Value "Started"
                 }
             Else {
-                    Write-Host "Test run: Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$snapShotCreatedDateTime]"
+                    Write-Host "Test run: Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$($snapshotForRestore.createdDateTimeValue)]"
                     $cloudPC | Add-Member -MemberType NoteProperty -Name "RestorationStatus" -Value "NotStarted"
                 }
-                $cloudPC | Add-Member -MemberType NoteProperty -Name "SnapshotCreatedDateTime" -Value $snapShotCreatedDateTime
+                $cloudPC | Add-Member -MemberType NoteProperty -Name "SnapshotCreatedDateTime" -Value $($snapshotForRestore.createdDateTimeValue)
                 $cloudPC | Add-Member -MemberType NoteProperty -Name "SnapshotId" -Value $snapshotForRestore.id                
             }
         }
