@@ -21,7 +21,7 @@
 #region Variables
 
 # Number of devices with connection issues (Go to the Intune Portal -> Devices -> Overview -> Cloud PC Performance -> Devices with connection issues.)
-# This number is an estimate and can be adjusted based on the number of devices with the status "ErrorResourceUnavailable" in the inaccessible Cloud PC report. 
+# Setting the upper limit of devices with the status "ErrorResourceUnavailable" or "ErrorResourceUnavailable_CustomerInitiatedActions" in the inaccessible Cloud PC report tells the script how many downloads to make in batches of 100 devices.
 # The script retrieves the inaccessible Cloud PC report in batches of 100 devices up to a maximum of $numberOfCloudPCsInaccessible devices.
 $numberOfCloudPCsInaccessible = 1000
 $testRun = $false # Set to $true to test the script without restoring the Cloud PCs
@@ -106,10 +106,8 @@ $cloudPCsToRestore = $w365InaccessibleReportData | Where-Object { $_.deviceHealt
 Write-Host "Windows 365 devices with status ErrorResourceUnavailable: [$($w365InaccessibleReportData.Count)]"
 If ($cloudPCsToRestore.Count -gt 0) {
     Write-Host "Restoring inaccessible Cloud PCs using the latest snapshot created before $restorePointDateTime"
-    $cloudPCsProcessed = 0
     Foreach ($cloudPC in $cloudPCsToRestore) {
         Try {
-            $cloudPCsProcessed++
             # Get the latest snapshots filtering on those created before $restorePointDateTime
             Write-Host "Getting snapshots for Cloud PC [$($cloudPC.cloudPcName)] [$($cloudPC.cloudPcId)]" 
             $snapshots = Get-MgBetaDeviceManagementVirtualEndpointSnapshot -Filter "cloudPcId eq '$($cloudPC.cloudPcId)'" | Sort-Object -Property createdDateTime -Descending            
