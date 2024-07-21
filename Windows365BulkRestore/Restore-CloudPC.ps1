@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-    This script restores Cloud PCs that are inaccessible due to the status "ErrorResourceUnavailable" using the latest snapshot created before 19/07/2024 04:00 UTC just before the problematic Crowdstrike sensor update was released.
+    This script restores Cloud PCs that are inaccessible due to the status "ErrorResourceUnavailable" or "ErrorResourceUnavailable_CustomerInitiatedActions" using the latest snapshot created before 19/07/2024 04:00 UTC just before the problematic Crowdstrike sensor update was released.
 .DESCRIPTION
-    The script retrieves the inaccessible Cloud PC report and filters on Cloud PCs with the status "ErrorResourceUnavailable".
+    The script retrieves the inaccessible Cloud PC report and filters on Cloud PCs with the status "ErrorResourceUnavailable" or "ErrorResourceUnavailable_CustomerInitiatedActions".
     It then restores the Cloud PCs to the latest snapshot created before 19/07/2024 at 04:00 UTC just before the problematic Crowdstrike sensor update was released.   
 .NOTES
     File Name      : Restore-CloudPC.ps1
@@ -102,7 +102,7 @@ For ($i = 0; $i -lt $numberOfCloudPCsInaccessible; $i += 100) {
 }
 
 # Get all devices with the status "ErrorResourceUnavailable"
-$cloudPCsToRestore = $w365InaccessibleReportData | Where-Object { $_.deviceHealthStatus -match "ErrorResourceUnavailable"}
+$cloudPCsToRestore = $w365InaccessibleReportData | Where-Object { $_.deviceHealthStatus -eq "ErrorResourceUnavailable" -or $_.deviceHealthStatus -eq "ErrorResourceUnavailable_CustomerInitiatedActions"}
 Write-Host "Windows 365 devices with status ErrorResourceUnavailable: [$($w365InaccessibleReportData.Count)]"
 If ($cloudPCsToRestore.Count -gt 0) {
     Write-Host "Restoring inaccessible Cloud PCs using the latest snapshot created before $restorePointDateTime"
@@ -125,7 +125,7 @@ If ($cloudPCsToRestore.Count -gt 0) {
             Else {
                 # Restore the Cloud PC to the selected snapshot
                 If ($testRun -eq $false) {
-                    Write-Host "Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$($snapshotForRestore.createdDateTimeValue)]"
+                    Write-Host "Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$(($snapshotForRestore.createdDateTimeValue).ToUniversalTime())]"
                     $params = @{
                         cloudPcSnapshotId = $($snapshotForRestore.id)
                     }
@@ -134,10 +134,10 @@ If ($cloudPCsToRestore.Count -gt 0) {
                     $cloudPC | Add-Member -MemberType NoteProperty -Name "RestorationStatus" -Value "Started"
                 }
             Else {
-                    Write-Host "Test run: Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$($snapshotForRestore.createdDateTimeValue)]"
+                    Write-Host "Test run: Restoring Cloud PC [$($cloudPC.cloudPcName)] to snapshot created on [$(($snapshotForRestore.createdDateTimeValue).ToUniversalTime())]"
                     $cloudPC | Add-Member -MemberType NoteProperty -Name "RestorationStatus" -Value "NotStarted"
                 }
-                $cloudPC | Add-Member -MemberType NoteProperty -Name "SnapshotCreatedDateTime" -Value $($snapshotForRestore.createdDateTimeValue)
+                $cloudPC | Add-Member -MemberType NoteProperty -Name "SnapshotCreatedDateTime" -Value $(($snapshotForRestore.createdDateTimeValue).ToUniversalTime())
                 $cloudPC | Add-Member -MemberType NoteProperty -Name "SnapshotId" -Value $snapshotForRestore.id                
             }
         }
