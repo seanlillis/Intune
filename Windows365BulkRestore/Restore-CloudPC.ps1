@@ -102,11 +102,10 @@ For ($i = 0; $i -lt $numberOfCloudPCsInaccessible; $i += 100) {
 }
 
 # Get all devices with the status "ErrorResourceUnavailable"
-$cloudPCsToRestore = $w365InaccessibleReportData | Where-Object { $_.deviceHealthStatus -contains "ErrorResourceUnavailable"}
+$cloudPCsToRestore = $w365InaccessibleReportData | Where-Object { $_.deviceHealthStatus -match "ErrorResourceUnavailable"}
 Write-Host "Windows 365 devices with status ErrorResourceUnavailable: [$($w365InaccessibleReportData.Count)]"
 If ($cloudPCsToRestore.Count -gt 0) {
     Write-Host "Restoring inaccessible Cloud PCs using the latest snapshot created before $restorePointDateTime"
-    $restoreJobs = @()
     $cloudPCsProcessed = 0
     Foreach ($cloudPC in $cloudPCsToRestore) {
         Try {
@@ -157,7 +156,8 @@ $cloudPCsRestored = $cloudPCsToRestore | Where-Object { $_.RestorationStatus -eq
 Write-Host "Cloud PCs restored: [$($cloudPCsRestored.Count) / $($cloudPCsToRestore.Count)]"
 $date = $(Get-Date -Format "yyyyMMdd_HHmmss")
 $csvReportPath = Join-Path $dirReports "CloudPCsToRestore_$date.csv"
-$cloudPCsToRestore | Select * | Export-Csv -Path $csvReportPath -NoTypeInformation -Force
+$cloudPCsToRestore | OGV
+$cloudPCsToRestore | Select * | Export-Csv -Path $csvReportPath -NoTypeInformation -NoClobber -Force
 Write-Host "Report saved to: $csvReportPath"
 Write-Host "Script completed. Check the Cloud PC restoration status in the Windows 365 portal."
 #endregion
