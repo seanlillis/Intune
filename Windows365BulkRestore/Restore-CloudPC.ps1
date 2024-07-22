@@ -101,9 +101,9 @@ For ($i = 0; $i -lt $numberOfCloudPCsInaccessible; $i += 100) {
     }
 }
 
-# Get all devices with the status "ErrorResourceUnavailable"
+# Get all devices with the status "ErrorResourceUnavailable" or "ErrorResourceUnavailable_CustomerInitiatedActions"
 $cloudPCsToRestore = $w365InaccessibleReportData | Where-Object { $_.deviceHealthStatus -eq "ErrorResourceUnavailable" -or $_.deviceHealthStatus -eq "ErrorResourceUnavailable_CustomerInitiatedActions"}
-Write-Host "Windows 365 devices with status ErrorResourceUnavailable: [$($w365InaccessibleReportData.Count)]"
+Write-Host "Windows 365 devices with status ErrorResourceUnavailable or ErrorResourceUnavailable_CustomerInitiatedActions: [$($cloudPCsToRestore.Count)]"
 If ($cloudPCsToRestore.Count -gt 0) {
     Write-Host "Restoring inaccessible Cloud PCs using the latest snapshot created before $restorePointDateTime"
     Foreach ($cloudPC in $cloudPCsToRestore) {
